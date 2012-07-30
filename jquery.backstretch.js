@@ -98,14 +98,27 @@
             // Prepend image, wrapped in a DIV, with some positioning and zIndex voodoo
             if(src) {
                 var img;
+                var newImgTop; //for sliding new image into view
+                var newContainerHeight; // ditto
+                /**
+                 * we will be taking the container, adding the new image below the current bg,
+                 *  stretching the new image to what it's size will be, offset from the top,
+                 *  executing the before-transition logic (for changing the img source to the blurred version)
+                 *  stretch top of container to drag new bg image into sight
+                 *  remove old image
+                 *  temporarily set new image position on bot
+                 *  resize container
+                 *  reposition new image to top (should be same as bottom so no flickering)
+                 */
 
                 // If this is the first time that backstretch is being called
                 if($container.length == 0) {
                     $container = $("<div />").attr("id", "backstretch")
-                                             .css({left: 0, top: 0, position: supportsFixedPosition ? "fixed" : "absolute", overflow: "hidden", zIndex: -999999, margin: 0, padding: 0, height: "100%", width: "100%"});
+                                             .css({left: 0, bottom: 0, position: supportsFixedPosition ? "fixed" : "absolute", overflow: "hidden", zIndex: -999999, margin: 0, padding: 0, height: "100%", width: "100%"});
                 } else {
                     // Prepare to delete any old images
                     $container.find("img").addClass("deleteable");
+                    newImgTop = parseInt($container.height() - $container.find('img').css('top'));
                 }
 
                 img = $("<img />").css({position: "absolute", display: "none", margin: 0, padding: 0, border: "none", zIndex: -999999, maxWidth: "none"})
