@@ -23,7 +23,7 @@
       , settings = $container.data("settings") || defaultSettings // If this has been called once before, use the old settings as the default
       , existingSettings = $container.data('settings')
       , rootElement, supportsFixedPosition, useWindowInnerHeight
-      , imgRatio, bgImg, bgWidth, bgHeight, bgOffset, bgCSS;
+      , imgRatio, bgImg, bgWidth, bgHeight, bgOffset, bgCSS, verticalOffset, rootHeight;
 
         // Extend the settings with those the user has provided
         if(options && typeof options == "object") $.extend(settings, options);
@@ -98,7 +98,7 @@
             // Prepend image, wrapped in a DIV, with some positioning and zIndex voodoo
             if(src) {
                 var img;
-                var newImgTop; //for sliding new image into view
+                var newImgVerticalOffset = 0; //for sliding new image into view
                 var newContainerHeight; // ditto
                 /**
                  * we will be taking the container, adding the new image below the current bg,
@@ -107,7 +107,7 @@
                  *  stretch top of container to drag new bg image into sight
                  *  remove old image
                  *  temporarily set new image position on bot
-                 *  resize container
+                 *  resize container to original properties
                  *  reposition new image to top (should be same as bottom so no flickering)
                  */
 
@@ -118,10 +118,10 @@
                 } else {
                     // Prepare to delete any old images
                     $container.find("img").addClass("deleteable");
-                    newImgTop = parseInt($container.height() - $container.find('img').css('top'));
+                    newImgVerticalOffset = parseInt($container.height() - parseInt($container.find('img').css('top')));
                 }
 
-                img = $("<img />").css({position: "absolute", display: "none", margin: 0, padding: 0, border: "none", zIndex: -999999, maxWidth: "none"})
+                img = $("<img />").css({position: "absolute", display: "block", margin: 0, padding: 0, border: "none", zIndex: -999999, maxWidth: "none"})
                                   .bind("load", function(e) {
                                       var $self = $(this),
                                           imgWidth, imgHeight;
@@ -131,15 +131,18 @@
                                       imgHeight = this.height || $(e.target).height();
                                       imgRatio = imgWidth / imgHeight;
 
-                                      _adjustBG();
-                                      $self.fadeIn(settings.speed, function(){
+                                      _adjustBG(newImgVerticalOffset);
+                                      /*$self.fadeIn(settings.speed, function(){
                                           // Remove the old images, if necessary.
                                           $container.find('.deleteable').remove();
                                           // Callback
                                           if(typeof callback == "function") callback();
                                       });
+                                      */
                                   })
                                   .appendTo($container);
+                                  slideImageIntoView(img); // Post resizing of image, slide the new image into view if there is an existing image
+                                  //$container.find('.deleteable').remove();
 
                 // Append the container to the body, if it's not already there
                 if($("body #backstretch").length == 0) {
@@ -167,7 +170,7 @@
             }
         }
 
-        function _adjustBG() {
+        function _adjustBG(offsetDueToExistingImg) {
             try {
                 bgCSS = {left: 0, top: 0}
               , rootWidth = bgWidth = rootElement.width()
@@ -177,13 +180,17 @@
                 // Make adjustments based on image ratio
                 // Note: Offset code provided by Peter Baker (http://ptrbkr.com/). Thanks, Peter!
                 if(bgHeight >= rootHeight) {
-                    bgOffset = (bgHeight - rootHeight) /2;
-                    if(settings.centeredY) bgCSS.top = "-" + bgOffset + "px";
+                    bgOffset = offsetDueToExistingImg;
+                    verticalOffset = (bgHeight - rootHeight) / -2;
+                    if (!bgOffset) bgOffset = verticalOffset;
+                    if (settings.centeredY) bgCSS.top = bgOffset + "px";
                 } else {
                     bgHeight = rootHeight;
                     bgWidth = bgHeight * imgRatio;
                     bgOffset = (bgWidth - rootWidth) / 2;
-                    if(settings.centeredX) bgCSS.left = "-" + bgOffset + "px";
+                    if (settings.centeredX) bgCSS.left = "-" + bgOffset + "px";
+                    bgCSS.top = offsetDueToExistingImage + "px";
+                    verticalOffset = 0;
                 }
 
                 $container.css({width: rootWidth, height: rootHeight})
@@ -192,6 +199,21 @@
                 // IE7 seems to trigger _adjustBG before the image is loaded.
                 // This try/catch block is a hack to let it fail gracefully.
             }
+        }
+
+        function slideImageIntoView($newImage) {
+            var $oldImage = $container.find(".deleteable");
+            if (!$oldImage[0] ) return;
+            var newImageTop = $newImage.css('top') != 'auto' ? parseInt($newImage.css('top')) : 0;
+            var oldImageTop = $oldImage.css('top') ? parseInt($oldImage.css('top')) : 0;
+            var newContainerHeight = $container.height() * 2 - oldImageTop - newImageTop;
+            $container.animate({height: newContainerHeight}, settings.speed, removeGarbage);
+        }
+        function removeGarbage() {
+            $container.find('.deleteable').remove();
+            $container.find('img').css({bottom: verticalOffset});
+            $container.height(rootHeight);
+            $container.find('img').css({top: verticalOffset});
         }
     };
 
